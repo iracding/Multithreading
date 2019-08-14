@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace PLinq类
+namespace PLinq类1
 {
     public class Test
     {
@@ -38,11 +38,12 @@ namespace PLinq类
         public IEnumerable<string> GetTypes()
         {
             return from assembly in
-                       AppDomain.CurrentDomain.GetAssemblies()
+                       AppDomain.CurrentDomain.GetAssemblies().Where(p => !p.IsDynamic)
                    from type in assembly.GetExportedTypes()
                    where type.Name.StartsWith("Web")
                    select type.Name;
         }
+        [Fact]
         public void MainTest()
         {
             var sw = new Stopwatch();
@@ -57,12 +58,46 @@ namespace PLinq类
             WriteLine("Sequential LINQ query.");
             WriteLine($"Time elapsed:{sw.Elapsed}");
             WriteLine("Press ENTER to continue...");
-            Console.ReadLine();
             Console.Clear();
             sw.Reset();
 
+            sw.Start();
+            var parallelQuery = from t in ParallelEnumerable.AsParallel(GetTypes())
+                                select EmulateProcessing(t);
+            foreach(string typeName in parallelQuery)
+            {
+                PrintInfo(typeName);
+            }
+            sw.Stop();
+            WriteLine(".......");
+            WriteLine("Parallel Linq query. The results are being merged on singel thread");
+            WriteLine($"Time elapsed:{sw.Elapsed}");
+            WriteLine("Press ENTER to continue...");
 
+            sw.Start();
+            parallelQuery = from t in GetTypes().AsParallel()
+                                select EmulateProcessing(t);
+            parallelQuery.ForAll(PrintInfo);
+            sw.Stop();
+            WriteLine(".......");
+            WriteLine("Parallel Linq query. The results are being merged on singel parallel");
+            WriteLine($"Time elapsed:{sw.Elapsed}");
+            WriteLine("Press ENTER to continue...");
+            sw.Reset();
 
+            sw.Start();
+            query = from t in GetTypes().AsParallel().AsSequential()
+                    select EmulateProcessing(t);
+            foreach(var typeName in query)
+            {
+                PrintInfo(typeName);
+            }
+            sw.Stop();
+            sw.Stop();
+            WriteLine(".......");
+            WriteLine("Parallel Linq query , transformed into sequential .");
+            WriteLine($"Time elapsed:{sw.Elapsed}");
+            WriteLine("Press ENTER to continue...");
         }
     }
 }
